@@ -13,20 +13,6 @@ const db   = process.env.MONGODB_URI || 'mongodb://localhost/notas';
 // crear app
 const app = express();
 
-// middleware
-// parsear bodys con json
-app.use(express.json());
-app.use(morgan('dev'));  // para DEBUG
-// usar cors
-app.use(cors());
-// api router
-app.use('/api', require('./routes/api/note'));
-
-/* TODO: handle errors
-app.use('/api', (err, req, res) => {
-  res.status(500).json({ err: err });
-}); */
-
 // conexion a la base de datos
 mongoose.set('useUnifiedTopology', true);
 mongoose.set('useFindAndModify', false);
@@ -36,6 +22,22 @@ mongoose
     console.log(`DB connected @ ${db}`);
   })
   .catch(err => console.error(`Connection error ${err}`));
+
+// middleware
+// parsear bodys con json
+app.use(express.json());
+// logger para desarrollo
+app.use(morgan('dev'));
+// usar cors
+app.use(cors());
+// api router
+app.use('/api', require('./routes/api/note'));
+
+// error handler
+app.use((err, req, res, next) => {
+  // DEBUG: console.error(err.stack)
+  res.status(500).json({ msg: 'Something broke!' })
+})
 
 // listen
 app.listen(port, () => {

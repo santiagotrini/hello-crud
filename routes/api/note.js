@@ -3,11 +3,9 @@ const Note    = require('../../models/Note');
 
 const router = express.Router();
 
-// TODO: testing para la API!
-// TODO: automated docs
-// TODO: status codes apropiados
+// TODO: testing para la API! (para otra guia)
+// TODO: automated docs (para otra guia)
 // TODO: HATEOAS
-// TODO: update returning new document
 
 // GET /notes (todas las notas)
 router.get('/notes', (req, res, next) => {
@@ -17,8 +15,8 @@ router.get('/notes', (req, res, next) => {
   });
 });
 
-// GET /note/id
-router.get('/note/:id', (req, res, next) => {
+// GET /notes/id
+router.get('/notes/:id', (req, res, next) => {
   Note.findById(req.params.id).exec((err, note) => {
     if (err) next(err);
     res.status(200).json(note);
@@ -33,28 +31,30 @@ router.post('/notes', (req, res, next) => {
   });
   note.save((err, note) => {
     if (err) next(err);
-    res.status(200).json(note);
+    res.status(201).json(note);
   });
 });
 
-// PUT /note/id
-router.put('/note/:id', (req, res, next) => {
+// PUT /notes/id
+router.put('/notes/:id', (req, res, next) => {
   const note = {
     title: req.body.title,
     text: req.body.text,
     updatedAt: Date.now()
   };
-  Note.findByIdAndUpdate(req.params.id, note).exec((err, note) => {
+  const options = { new: true };
+  Note.findByIdAndUpdate(req.params.id, note, options).exec((err, note) => {
     if (err) next(err);
-    res.json(note);
+    res.status(200).json(note);
   });
 });
 
-// DELETE /note/id
-router.delete('/note/:id', (req, res) => {
-  Note.findByIdAndRemove(req.params.id).exec((err) => {
+// DELETE /notes/id
+router.delete('/notes/:id', (req, res) => {
+  Note.findByIdAndRemove(req.params.id).exec((err, note) => {
     if (err) next(err);
-    res.json({ msg: "Delete OK" });
+    // if (!note) res.status(404).json({ msg: 'Not found' });
+    res.status(200).json({ msg: 'Delete OK' });
   });
 });
 
