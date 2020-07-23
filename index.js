@@ -2,9 +2,10 @@
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
+// logger mientra desarrollamos
 const morgan   = require('morgan');
 
-// TODO: usar dotenv
+// TODO: error handling: 404 y 500
 
 // config vars
 const port = process.env.PORT        || 3000;
@@ -26,18 +27,27 @@ mongoose
 // middleware
 // parsear bodys con json
 app.use(express.json());
-// logger para desarrollo
-app.use(morgan('dev'));
 // usar cors
 app.use(cors());
+// logger para desarrollo
+app.use(morgan('dev'));
 // api router
-app.use('/api', require('./routes/api/note'));
+app.use('/api', require('./api/routes/note'));
 
-// error handler
+// error handlers (despues de las rutas de la API)
+// 404 not found
+app.use((req, res, next) => {
+  const err = new Error('Not found');
+  err.status = 404;
+  next(err);
+});
+// algun error distinto a not found
+// defaultea a 500
 app.use((err, req, res, next) => {
+  res.status(err.status || 500);
   // DEBUG: console.error(err.stack)
-  res.status(500).json({ msg: 'Something broke!' })
-})
+  res.json({ error: err.message });
+});
 
 // listen
 app.listen(port, () => {

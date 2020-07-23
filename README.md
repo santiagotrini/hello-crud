@@ -1,11 +1,31 @@
 # Hello CRUD
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Una API REST en Express y Mongoose para una app de tomar notas.
 
 ## Qué vamos a hacer
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Vamos a a hacer una API con las cuatro operaciones sobre una colección de MongoDB. El acrónimo CRUD del inglés _create read update delete_ (crear, leer, actualizar y borrar). Para eso vamos a usar los métodos que Mongoose nos da para los modelos.
+
+La base de datos va a guardar notas y en la próxima guía vamos a armar un _frontend_ para una aplicación de tomar notas que use este _backend_.
 
 ## Creando el proyecto
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Creamos el proyecto en la terminal.
+
+```console
+$ mkdir hello-crud
+$ cd hello-crud
+$ npm init -y
+$ git init
+$ touch index.js
+$ mkdir api
+$ mkdir api/routes api/models
+$ touch api/routes/note.js
+$ touch api/models/Note.js
+$ npm i express mongoose cors morgan
+$ npm i -D nodemon
+$ echo node_modules > .gitignore
+$ echo web: npm start > Procfile
+```
+
+Agregamos los scripts `dev` y `start` al `package.json`. 
