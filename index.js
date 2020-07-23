@@ -2,10 +2,7 @@
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
-// logger mientra desarrollamos
 const morgan   = require('morgan');
-
-// TODO: error handling: 404 y 500
 
 // config vars
 const port = process.env.PORT        || 3000;
