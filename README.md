@@ -7,8 +7,11 @@ Una API REST en Express y Mongoose para una app de tomar notas.
 Vamos a a hacer una API con las cuatro operaciones básicas sobre una colección de MongoDB. El acrónimo CRUD viene del inglés _create read update delete_ (crear, leer, actualizar y borrar). Para eso vamos a usar los métodos que Mongoose nos da para los modelos.
 
 La base de datos va a guardar notas y en la próxima guía vamos a armar un _frontend_ en React para una aplicación de tomar notas que use esta API.
+La API tiene que devolver JSON siempre, incluso en caso de error.
 
-Además vamos a usar Postman para testear manualmente los _endpoints_.
+Vamos a explorar el concepto de HATEOAS (_hypermedia as the engine of application state_) que es propio de la arquitectura REST. Este principio se traduce en que las respuestas de la API contienen links que el cliente puede seguir para continuar la interacción con el servidor.
+
+Además vamos a usar Postman para testear manualmente los _endpoints_ con los distintos métodos HTTP.
 
 ## Creando el proyecto
 
@@ -39,13 +42,13 @@ Agregamos los scripts `dev` y `start` al `package.json`.
 }
 ```
 
-Vamos a necesitar después una base de datos en MongoDB Atlas y nuestro código en algún repo de GitHub.
+Vamos a necesitar después una base de datos en MongoDB Atlas y nuestro código en algún repo de GitHub. Esta API la podemos hostear en Heroku como hicimos con [hello-database](https://github.com/santiagotrini/hello-database).
 
-Todo el código relativo a la API lo vamos a poner en el directorio `api`. Más adelante vamos a usar este mismo proyecto para desplegar nuestro _frontend_.
+Todo el código relativo a la API lo vamos a poner en el directorio `api`. Más adelante vamos a usar este mismo proyecto para el _deploy_ de nuestro _frontend_.
 
-## Empezando
+## El server
 
-El esqueleto básico de Express que ya conocemos en `index.js`.
+El esqueleto básico de Express que ya conocemos va en `index.js`.
 
 ```js
 const express  = require('express');
@@ -80,7 +83,7 @@ app.listen(port, () => {
 
 Entre la conexión a Mongo y el `app.listen()` vamos a poner todos los _middlewares_ de Express. Vamos uno por uno.
 
-Primero agregamos los _middlewares_ de las librerías que instalamos. Y luego linkeamos las rutas de la API que vamos a definir en otro `api/routes/note.js`.
+Primero agregamos los _middlewares_ de las librerías que instalamos. Y luego linkeamos las rutas de la API que vamos a definir en el archivo `api/routes/note.js`.
 
 ```js
 app.use(express.json());
@@ -164,7 +167,7 @@ En la base de datos cada nota va a estar representada en un objeto similar a est
 }
 ```
 
-Donde los campos `updatedAt` y `createdAt` son _timestamps_ o fechas que indican el tiempo de creación y la última modificación y el campo `_id` es el identificador único generado por MongoDB. Vamos a darles valores por defecto a los dos últimos campos y hacer que los el título y el texto sean obligatorios. El ID se va a generar automáticamente. El archivo `api/models/Note.js` es sencillo.
+Donde los campos `updatedAt` y `createdAt` son _timestamps_ o fechas que indican el tiempo de creación y la última modificación y el campo `_id` es el identificador único generado por MongoDB. Vamos a darles valores por defecto a los dos últimos campos y hacer que el título y el texto sean obligatorios. El ID se va a generar automáticamente. El archivo `api/models/Note.js` es sencillo.
 
 ```js
 const mongoose = require('mongoose');
@@ -190,5 +193,89 @@ El manejo de errores o _error handling_ como le dicen en inglés es una buena pa
 Por ejemplo, a esta altura sabemos que rutas tienen sentido para esta app, pero en la barra de direcciones del navegador uno puede escribir lo que quiera, como `http://host.com/api/autos` o `http://host.com/ruta/secreta`.
 
 Si esto va a ser una API REST más o menos seria tiene que comportarse como tal, si la ruta existe seguro va a devolver algo en JSON, pero si no existe también queremos que devuelva JSON, posiblemente indicando el error. Volvamos a `index.js` a ver que podemos hacer.
+
+```js
+/** index.js
+  * middlewares (antes del listen)
+  * los middlewares se ejecutan en orden para todas las peticiones
+  * salvo que no coincida la ruta
+  * (solo para el 4to middleware en este caso)  
+  */
+app.use(express.json());                        // 1er middleware
+app.use(cors());                                // 2do middleware
+app.use(morgan('dev'));                         // 3er middleware
+app.use('/api', require('./api/routes/note'));  // 4to middleware
+// si el cliente no hace una peticion a algun endpoint
+// entonces usamos una ruta que devuelva un status code 404
+// 5to middleware (error 404 not found)
+app.use((req, res, next) => {
+  const err = new Error('Not found');
+  err.status = 404;
+  next(err);
+});
+// no terminamos la cadena de middlewares ahi
+// la pasamos a un 6to middleware que responda al cliente
+// con el error 404 o 500 si vino de otro lado el problema
+app.use((err, req, res, next) => {
+  res.status(err.status || 500);
+  // para mas detalles usar: console.error(err.stack)
+  res.json({ error: err.message });
+});
+```
+
+El quinto _middleware_ se ejecuta cuando escribimos una ruta que no definimos en la API, genera un error y se lo pasa al sexto _middleware_ que devuelve el error en formato JSON. Si el error no era un 404 y vino de otro lado toma el código 500 que significa _Internal Server Error_ y lo envía al cliente.
+
+El truco más importante acá es que el server responda a cualquier ruta con 404 salvo que antes haya pasado por las rutas puntuales de la API. Nos valemos de que el orden de los _middlewares_ va a ser el orden en el que aparecen en el código.
+
+## Implementando los endpoints
+
+Ahora sí volvemos a `api/routes/note.js` y escribimos el código para cada _endpoint_. Conviene instalar una app como [Postman](https://postman.com) para testear manualmente que todo funcione. Las peticiones con método `GET` las podemos hacer desde el navegador web, pero para `POST`, `PUT` y `DELETE` necesitamos otra herramienta. Postman sirve para eso, una alternativa en la terminal sería usar cURL.
+
+### POST /notes
+
+La API tiene que crear una nueva nota en la base de datos cuando recibe una petición de tipo `POST` a `/api/notes`. En el cuerpo de la petición tienen que estar el título y el texto de la nota en formato JSON, como en el siguiente ejemplo.
+
+```json
+{
+  "title": "Un titulo",
+  "text": "Esta nota tiene texto"
+}
+```
+
+Esos datos van a estar en `req.body.title` y `req.body.text` gracias a `express.json()`. El código de este _endpoint_ es el que sigue.
+
+```js
+router.post('/notes', (req, res, next) => {
+  const note = new Note({
+    title: req.body.title,
+    text: req.body.text
+  });
+  note.save((err, note) => {
+    if (err) return next(err);
+    res.status(201).json(note);
+  });
+});
+```
+
+Creamos una nueva instancia del modelo `Note` con `new Note()`. Los datos que no completamos toman su valor automáticamente: `_id`, `createdAt` y `updatedAt`.
+Los modelos en Mongoose pueden usar la función `Model.save()` para guardarse en la base de datos, el argumento de la función es una _callback_ que se ejecuta al completar la operación de guardado. Respondemos al cliente con código 201 (_Created_) y con la nota recién creada en la respuesta. Si hay algún error lo pasamos al próximo _middleware_ que se va a encargar de manejar los errores. 
+
+### GET /notes
+
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+### GET /notes/id
+
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+### PUT /notes/id
+
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+### DELETE /notes/id
+
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+## ¿Y ahora?
 
 Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
