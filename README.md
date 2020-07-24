@@ -4,12 +4,12 @@ Una API REST en Express y Mongoose para una app de tomar notas.
 
 ## Qué vamos a hacer
 
-Vamos a a hacer una API con las cuatro operaciones básicas sobre una colección de MongoDB. El acrónimo CRUD viene del inglés _create read update delete_ (crear, leer, actualizar y borrar). Para eso vamos a usar los métodos que Mongoose nos da para los modelos.
+Vamos a a hacer una API con las cuatro operaciones básicas sobre una colección de MongoDB. El acrónimo CRUD viene del inglés _create, read, update, delete_ (crear, leer, actualizar y borrar). Para eso vamos a usar los métodos que Mongoose nos da para los modelos.
 
 La base de datos va a guardar notas y en la próxima guía vamos a armar un _frontend_ en React para una aplicación de tomar notas que use esta API.
 La API tiene que devolver JSON siempre, incluso en caso de error.
 
-Vamos a explorar el concepto de HATEOAS (_hypermedia as the engine of application state_) que es propio de la arquitectura REST. Este principio se traduce en que las respuestas de la API contienen links que el cliente puede seguir para continuar la interacción con el servidor.
+Vamos a explorar el concepto de HATEOAS (_hypermedia as the engine of application state_) que es propio de la arquitectura REST. Este principio consiste en que las respuestas de la API contienen links que el cliente puede seguir para continuar la interacción con el servidor.
 
 Además vamos a usar Postman para testear manualmente los _endpoints_ con los distintos métodos HTTP.
 
@@ -205,7 +205,7 @@ app.use(express.json());                        // 1er middleware
 app.use(cors());                                // 2do middleware
 app.use(morgan('dev'));                         // 3er middleware
 app.use('/api', require('./api/routes/note'));  // 4to middleware
-// si el cliente no hace una peticion a algun endpoint
+// si el cliente NO hace una peticion a algun endpoint de la API
 // entonces usamos una ruta que devuelva un status code 404
 // 5to middleware (error 404 not found)
 app.use((req, res, next) => {
@@ -229,7 +229,7 @@ El truco más importante acá es que el server responda a cualquier ruta con 404
 
 ## Implementando los endpoints
 
-Ahora sí volvemos a `api/routes/note.js` y escribimos el código para cada _endpoint_. Conviene instalar una app como [Postman](https://postman.com) para testear manualmente que todo funcione. Las peticiones con método `GET` las podemos hacer desde el navegador web, pero para `POST`, `PUT` y `DELETE` necesitamos otra herramienta. Postman sirve para eso, una alternativa en la terminal sería usar cURL.
+Ahora sí volvemos a `api/routes/note.js` y escribimos el código para cada _endpoint_. Conviene instalar una app como [Postman](https://postman.com) para testear manualmente que todo funcione. Las peticiones con método `GET` las podemos hacer desde el navegador web, pero para `POST`, `PUT` y `DELETE` necesitamos otra herramienta. Postman sirve para eso, una alternativa en la terminal sería usar [cURL](https://es.wikipedia.org/wiki/CURL).
 
 ### POST /notes
 
@@ -330,11 +330,15 @@ router.get('/notes/:id', (req, res, next) => {
 });
 ```
 
-Pero hay dos cosas que podrían salir mal, o que el ID que ponemos en la ruta no existe, pero es válido para Mongoose, en ese caso el error es un 404 porque no hay nota con ese ID. La otra opción es que el ID de la ruta no sea válido (no puede ser cualquier cosa). En ese caso el código del error es 500, y en el mensaje del error tendremos el error de Mongoose de que el ID es inválido.
+Pero hay dos cosas que podrían salir mal, o que el ID que ponemos en la ruta no existe, pero es válido para Mongoose, en ese caso el error es un 404 porque no hay nota con ese ID. De eso se encarga el `if (!note) ...`.
+
+La otra opción es que el ID de la ruta no sea válido (no puede ser cualquier cosa). En ese caso el código del error es 500, y en el mensaje del error tendremos el error de Mongoose de que el ID es inválido. Para eso está el primer condicional: `if (err) return next(err)`.
 
 ### PUT /notes/id
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Para modificar un documento (una nota particular en la colección de notas) en Mongoose podemos usar `Model.findByIdAndUpdate()`. Usamos tres argumentos para esta función. Primero el ID, después los cambios que hacemos al documento en un objeto y en tercer lugar un objeto de opciones.
+
+Las opciones que estoy usando: `new` y `omitUndefined` están para que en la _callback_ reciba el documento ya modificado y para ignorar en la actualización cualquier campo que sea `null`. O sea que si mando una petición pero no pongo en el _body_ un nuevo valor para el título no lo va a cambiar.
 
 ```js
 router.put('/notes/:id', (req, res, next) => {
@@ -355,14 +359,14 @@ router.put('/notes/:id', (req, res, next) => {
 });
 ```
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Los errores posibles son muy similares a los del _endpoint_ anterior. En caso de que todo vaya bien la API responde con la nota ya modificada.
 
 ### DELETE /notes/id
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Último _endpoint_, mandamos una petición de tipo `DELETE` a `http://host/api/notes/5f1914483a78a51b1d3d69b1` y si la nota existe se elimina de la base de datos y el server responde con código 200 y algún mensaje. Usamos `Model.findByIdAndRemove()` para eso, como argumento le pasamos el ID de la URL (disponible en `req.params.id`).
 
 ```js
-router.delete('/notes/:id', (req, res) => {
+router.delete('/notes/:id', (req, res, next) => {
   Note.findByIdAndRemove(req.params.id).exec((err, note) => {
     if (err) return next(err);
     if (!note) return res.status(404).json({ msg: 'Not found' });
@@ -371,8 +375,34 @@ router.delete('/notes/:id', (req, res) => {
 });
 ```
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Los errores son los mismos que antes, estamos buscando un documento por ID, puede ser que exista o puede ser que el ID no sea un ID válido.
+
+Y listo, con eso terminamos la API. Ahora solo queda probar los _endpoints_ con Postman.
+
+## Probar endpoints en Postman
+
+Abrimos Postman e ignoramos la pantalla de _login_, no es necesario registrarse. Deberían ver una pantalla como esta. Abran una pestaña para crear una petición HTTP.
+
+![postman](img/postman.png)
+
+Para crear una nueva nota elijan `POST` como método y usen `http://localhost:3000/api/notes` como URL. Sigan las instrucciones en la captura para armar el cuerpo de la petición y le dan al botón de enviar (_send_). La respuesta del server aparece abajo.
+
+![postman-post](img/postman-post.png)
+
+Podemos hacer un `GET` a `/api/notes` para recuperar todas las notas.
+
+![postman-get](img/postman-get.png)
+
+Para actualizar también seteamos el cuerpo con los campos que queremos actualizar. En el ejemplo solo actualizo el campo de texto de la nota, el título al no aparecer queda como estaba.
+
+![postman-put](img/postman-put.png)
+
+Para eliminar la nota que creamos podemos mandar una petición con `DELETE` a la misma ruta de arriba, no hace falta ningún cuerpo en la petición.
+
+![postman-delete](img/postman-delete.png)
 
 ## ¿Y ahora?
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Ahora tenemos todo listo para ver la última tecnología del stack MERN en acción. En [hello-react](https://github.com/santiagotrini/hello-react) vamos a armar la interfaz de usuario para esta app de tomar notas.
+
+Por otro lado, podemos seguir trabajando con esta API generando documentación para la misma con JSDoc en [hello-docs](https://github.com/santiagotrini/hello-docs) e introducir el concepto de _testing_ en [hello-tests](https://github.com/santiagotrini/hello-tests).
