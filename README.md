@@ -184,7 +184,7 @@ const Note = mongoose.model('Note', NoteSchema);
 module.exports = Note;
 ```
 
-Ahora sí podemos volver a las rutas, pero antes pensemos mal del usuario un poco y veamos de que manera podemos manejar los errores.
+Ahora sí podemos volver a las rutas, pero antes pensemos que pasaría si los clientes de esta API no la usan de la manera debida.
 
 ## Manejo de errores
 
@@ -330,7 +330,7 @@ router.get('/notes/:id', (req, res, next) => {
 });
 ```
 
-Pero hay dos cosas que podrían salir mal, o que el ID que ponemos en la ruta no existe, pero es válido para Mongoose, en ese caso el error es un 404 porque no hay nota con ese ID. De eso se encarga el `if (!note) ...`.
+Pero hay dos cosas que podrían salir mal, o que el ID que ponemos en la ruta no existe, pero es válido para Mongoose, en ese caso el error es un 404 porque no hay nota con ese ID. De eso se encarga el `if (!note)`.
 
 La otra opción es que el ID de la ruta no sea válido (no puede ser cualquier cosa). En ese caso el código del error es 500, y en el mensaje del error tendremos el error de Mongoose de que el ID es inválido. Para eso está el primer condicional: `if (err) return next(err)`.
 
@@ -363,7 +363,7 @@ Los errores posibles son muy similares a los del _endpoint_ anterior. En caso de
 
 ### DELETE /notes/id
 
-Último _endpoint_, mandamos una petición de tipo `DELETE` a `http://host/api/notes/5f1914483a78a51b1d3d69b1` y si la nota existe se elimina de la base de datos y el server responde con código 200 y algún mensaje. Usamos `Model.findByIdAndRemove()` para eso, como argumento le pasamos el ID de la URL (disponible en `req.params.id`).
+Último _endpoint_, mandamos una petición de tipo `DELETE` a `http://host/api/notes/id` y si la nota existe se elimina de la base de datos y el server responde con código 200 y algún mensaje. Usamos `Model.findByIdAndRemove()` para eso, como argumento le pasamos el ID de la URL (disponible en `req.params.id`).
 
 ```js
 router.delete('/notes/:id', (req, res, next) => {

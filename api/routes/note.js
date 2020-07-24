@@ -84,7 +84,7 @@ router.put('/notes/:id', (req, res, next) => {
 });
 
 // DELETE /notes/id
-router.delete('/notes/:id', (req, res) => {
+router.delete('/notes/:id', (req, res, next) => {
   Note.findByIdAndRemove(req.params.id).exec((err, note) => {
     if (err) return next(err);
     if (!note) return res.status(404).json({ msg: 'Not found' });
