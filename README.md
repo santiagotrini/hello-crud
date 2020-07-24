@@ -258,23 +258,120 @@ router.post('/notes', (req, res, next) => {
 ```
 
 Creamos una nueva instancia del modelo `Note` con `new Note()`. Los datos que no completamos toman su valor automáticamente: `_id`, `createdAt` y `updatedAt`.
-Los modelos en Mongoose pueden usar la función `Model.save()` para guardarse en la base de datos, el argumento de la función es una _callback_ que se ejecuta al completar la operación de guardado. Respondemos al cliente con código 201 (_Created_) y con la nota recién creada en la respuesta. Si hay algún error lo pasamos al próximo _middleware_ que se va a encargar de manejar los errores. 
+Los modelos en Mongoose pueden usar la función `Model.save()` para guardarse en la base de datos, el argumento de la función es una _callback_ que se ejecuta al completar la operación de guardado. Respondemos al cliente con código 201 (_Created_) y con la nota recién creada en la respuesta. Si hay algún error lo pasamos al próximo _middleware_ que se va a encargar de manejar los errores.
 
 ### GET /notes
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Una _request_ de tipo `GET` a `/api/notes` devuelve un array con todas las notas, indicando título y texto de la nota y un link para más detalles de esa nota particular. Además devuelve la cantidad de notas en el array y el link y método para crear una nueva nota. Esto es un ejemplo del principio HATEOAS que mencionamos al inicio de esta guía.
+
+```js
+router.get('/notes', (req, res, next) => {
+  Note.find()                  // todos los docs de notes
+    .select('_id title text')  // como SELECT en SQL
+    .sort('-updatedAt')        // ordena por modificacion descendente
+    .exec((err, notes) => {
+      if (err) return next(err);
+      // modifico un poco el resultado antes de mandarlo
+      notes = notes.map(note => ({
+        title: note.title,
+        text: note.text,
+        details: {
+          method: 'GET',
+          url: `${req.protocol}://${req.hostname}:3000/api/notes/${note._id}`
+        }
+      }));
+      res.status(200).json({
+        count: notes.length,   // la cantidad de elementos en notes
+        notes: notes,
+        create: {              // como crear una nota
+          method: 'POST',
+          url: `${req.protocol}://${req.hostname}:3000/api/notes`
+        }
+      });
+    });
+});
+```
+
+Algunas cosas nuevas que aparecen acá. Ordenamos el resultado de la _query_ con `sort()` para tener las notas ordenadas por fecha de actualización. Usamos `select()` para traer solo los campos que nos interesan mostrar.
+
+Como el resultado de la _query_ esta en el array `notes` y para cada nota queremos mostrar el link al _endpoint_ con más detalles de cada nota, tenemos que modificar ese array. La manera más simple es usando el método `map()` de arrays que lleva como argumento una función. La función se ejecuta para cada elemento del array, y al terminar devuelve el array modificado. Si se les dificulta entender el funcionamiento de `Array.map()` prueben lo siguiente en la consola del navegador.
+
+```js
+let numeros = [1, 2, 3, 4];
+numeros = numeros.map(n => n * 2);
+console.log(numeros);
+```
 
 ### GET /notes/id
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Cuando mandamos una petición `GET` a `http://host/api/notes/5f1914483a78a51b1d3d69b1` o algún ID similar obtenemos todos los campos de esa nota. Además tenemos un objeto `links` en la respuesta que nos indica las operaciones disponibles para esa nota: modificarla y eliminarla.
+
+```js
+router.get('/notes/:id', (req, res, next) => {
+  Note.findById(req.params.id)
+    .select('_id title text createdAt updatedAt')  // todo menos __v
+    .exec((err, note) => {
+      if (err) return next(err);
+      if (!note) return res.status(404).json({ msg: 'Not found' });
+      res.status(200).json({
+        note: note,
+        links: {
+          update: {
+            method: 'PUT',
+            url: `${req.protocol}://${req.hostname}:3000/api/notes/${note._id}`
+          },
+          delete: {
+            method: 'DELETE',
+            url: `${req.protocol}://${req.hostname}:3000/api/notes/${note._id}`
+          }
+        }
+      });
+    });
+});
+```
+
+Pero hay dos cosas que podrían salir mal, o que el ID que ponemos en la ruta no existe, pero es válido para Mongoose, en ese caso el error es un 404 porque no hay nota con ese ID. La otra opción es que el ID de la ruta no sea válido (no puede ser cualquier cosa). En ese caso el código del error es 500, y en el mensaje del error tendremos el error de Mongoose de que el ID es inválido.
 
 ### PUT /notes/id
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+```js
+router.put('/notes/:id', (req, res, next) => {
+  const note = {
+    title: req.body.title,
+    text: req.body.text,
+    updatedAt: Date.now()
+  };
+  const options = {
+    new: true,
+    omitUndefined: true
+  };
+  Note.findByIdAndUpdate(req.params.id, note, options).exec((err, note) => {
+    if (err) return next(err);
+    if (!note) return res.status(404).json({ msg: 'Not found' });
+    res.status(200).json(note);
+  });
+});
+```
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
 ### DELETE /notes/id
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+```js
+router.delete('/notes/:id', (req, res) => {
+  Note.findByIdAndRemove(req.params.id).exec((err, note) => {
+    if (err) return next(err);
+    if (!note) return res.status(404).json({ msg: 'Not found' });
+    res.status(200).json({ msg: 'Delete OK' });
+  });
+});
+```
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
 ## ¿Y ahora?
 
